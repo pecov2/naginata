@@ -213,25 +213,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyLanguage(currentLang);
 
-  const smoothScrollTo = (targetY, duration = 650) => {
-    const startY = window.scrollY || window.pageYOffset;
-    const distance = targetY - startY;
-    const startTime = performance.now();
-
-    const easeInOutCubic = (t) => {
-      if (t < 0.5) return 4 * t * t * t;
-      return 1 - Math.pow(-2 * t + 2, 3) / 2;
-    };
-
-    const step = (currentTime) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeInOutCubic(progress);
-      window.scrollTo(0, startY + distance * eased);
-      if (progress < 1) requestAnimationFrame(step);
-    };
-
-    requestAnimationFrame(step);
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const smoothScrollTo = (targetY) => {
+    window.scrollTo({
+      top: targetY,
+      left: 0,
+      behavior: prefersReducedMotion.matches ? 'auto' : 'smooth'
+    });
   };
 
   // ロードアニメーションを隠す
@@ -277,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.body.classList.contains('has-kamishibai-stage') && targetId in kamishibaiIndexById) {
           const maxIndex = 3;
           const end = window.innerHeight * maxIndex;
-          smoothScrollTo((end / maxIndex) * kamishibaiIndexById[targetId], 760);
+          smoothScrollTo((end / maxIndex) * kamishibaiIndexById[targetId]);
           return;
         }
 
@@ -344,6 +332,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildKamishibaiStage() {
     const existing = document.querySelector('.kamishibai-stage');
     existing?.remove();
+    const existingTrack = document.querySelector('.kamishibai-scroll-track');
+    existingTrack?.remove();
 
     const sceneGroups = [
       ['#hero .hero-inner'],
@@ -386,8 +376,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.appendChild(stage);
     document.body.classList.add('has-kamishibai-stage');
+    document.documentElement.classList.add('has-kamishibai-stage');
 
     const scenes = [...stage.querySelectorAll('.kamishibai-scene')];
+    document.documentElement.style.setProperty('--kamishibai-scenes', String(scenes.length));
+
+    const scrollTrack = document.createElement('div');
+    scrollTrack.className = 'kamishibai-scroll-track';
+    scrollTrack.setAttribute('aria-hidden', 'true');
+    scenes.forEach(() => {
+      const marker = document.createElement('div');
+      marker.className = 'kamishibai-scroll-marker';
+      scrollTrack.appendChild(marker);
+    });
+    document.body.insertBefore(scrollTrack, stage);
+
     let ticking = false;
 
     const fitKamishibaiScenes = () => {
@@ -414,7 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const update = () => {
       ticking = false;
-      fitKamishibaiScenes();
       const start = 0;
       const end = window.innerHeight * (scenes.length - 1);
       const y = window.scrollY || window.pageYOffset;
@@ -452,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const targetY = (end / maxIndex) * nextIndex;
 
       isSnapping = true;
-      smoothScrollTo(targetY, 760);
+      smoothScrollTo(targetY);
       window.setTimeout(() => {
         isSnapping = false;
       }, 820);
@@ -485,9 +487,13 @@ document.addEventListener('DOMContentLoaded', () => {
       snapKamishibai(delta > 0 ? 1 : -1);
     };
 
+    fitKamishibaiScenes();
     update();
     window.addEventListener('scroll', requestUpdate, { passive: true });
-    window.addEventListener('resize', requestUpdate);
+    window.addEventListener('resize', () => {
+      fitKamishibaiScenes();
+      requestUpdate();
+    });
     window.addEventListener('load', () => {
       fitKamishibaiScenes();
       update();

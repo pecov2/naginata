@@ -40,6 +40,11 @@ body {
   overflow-x: hidden;
 }
 
+html.has-kamishibai-stage {
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: 0;
+}
+
 .nav,
 .btn,
 .badge,
@@ -1202,6 +1207,20 @@ a {
   transition: opacity 0.18s ease, visibility 0.18s ease;
 }
 
+.kamishibai-scroll-track {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: calc(var(--kamishibai-scenes, 4) * 100svh);
+  pointer-events: none;
+}
+
+.kamishibai-scroll-marker {
+  height: 100svh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
 .kamishibai-stage.is-active {
   opacity: 1;
   visibility: visible;
@@ -1382,6 +1401,10 @@ a {
 
 .has-kamishibai-stage main > .related-link-section,
 .has-kamishibai-stage .site-footer {
+  display: none;
+}
+
+.has-kamishibai-stage main > section {
   display: none;
 }
 
