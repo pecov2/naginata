@@ -390,8 +390,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const scenes = [...stage.querySelectorAll('.kamishibai-scene')];
     let ticking = false;
 
+    const fitKamishibaiScenes = () => {
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      const headerHeight = header ? header.getBoundingClientRect().height : 0;
+      scenes.forEach((scene) => {
+        const stack = scene.querySelector('.kamishibai-card-stack');
+        const container = scene.querySelector('.container');
+        if (!stack || !container) return;
+
+        stack.style.removeProperty('--scene-fit');
+        if (!isMobile) return;
+
+        const containerStyle = window.getComputedStyle(container);
+        const paddingY = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+        const availableHeight = window.innerHeight - headerHeight - paddingY - 12;
+        const contentHeight = stack.scrollHeight;
+        if (contentHeight <= 0 || availableHeight <= 0) return;
+
+        const scale = Math.min(1, Math.max(0.76, availableHeight / contentHeight));
+        stack.style.setProperty('--scene-fit', scale.toFixed(3));
+      });
+    };
+
     const update = () => {
       ticking = false;
+      fitKamishibaiScenes();
       const start = 0;
       const end = window.innerHeight * (scenes.length - 1);
       const y = window.scrollY || window.pageYOffset;
@@ -465,7 +488,10 @@ document.addEventListener('DOMContentLoaded', () => {
     update();
     window.addEventListener('scroll', requestUpdate, { passive: true });
     window.addEventListener('resize', requestUpdate);
-    window.addEventListener('load', update);
+    window.addEventListener('load', () => {
+      fitKamishibaiScenes();
+      update();
+    });
     window.addEventListener('wheel', handleWheelSnap, { passive: false });
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -501,4 +527,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
-
