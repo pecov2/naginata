@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.classList.add('js-ready');
   const header = document.querySelector('.site-header');
   const menuToggle = document.querySelector('.menu-toggle');
+  const menuToggleLabel = document.querySelector('.menu-toggle-label');
   const menuCloseText = document.querySelector('.menu-close-text');
   const nav = document.getElementById('site-nav');
   const langToggle = document.querySelector('[data-lang-toggle]');
@@ -113,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   let currentLang = localStorage.getItem('sumiyoshiLanguage') === 'en' ? 'en' : 'ja';
-  const menuCloseDuration = 620;
+  const menuCloseDuration = 1050;
   let menuCloseTimer = null;
 
   const menuLabel = (isOpen) => {
@@ -147,8 +148,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const isOpen = header?.classList.contains('nav-open') || false;
       menuToggle.setAttribute('aria-label', menuLabel(isOpen));
     }
+    if (menuToggleLabel) {
+      menuToggleLabel.textContent = currentLang === 'en' ? 'Menu' : 'メニュー';
+    }
     if (menuCloseText) {
-      menuCloseText.textContent = menuCloseTextLabel();
+      menuCloseText.textContent = currentLang === 'en' ? 'Close' : '閉じる';
     }
     prepareHeroCopy();
     localStorage.setItem('sumiyoshiLanguage', lang);
@@ -179,11 +183,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.clearTimeout(menuCloseTimer);
     header.classList.remove('nav-open');
     header.classList.add('nav-closing');
+    document.body.classList.remove('nav-lock');
     menuToggle.setAttribute('aria-expanded', 'false');
     menuToggle.setAttribute('aria-label', menuLabel(false));
     menuCloseTimer = window.setTimeout(() => {
       header.classList.remove('nav-closing');
-      document.body.classList.remove('nav-lock');
       onClosed?.();
     }, menuCloseDuration);
   };
@@ -240,10 +244,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 年号を自動で更新
-  const yearEl = document.getElementById('year');
-  if (yearEl) {
-    yearEl.textContent = new Date().getFullYear();
-  }
+  const currentYear = String(new Date().getFullYear());
+  document.querySelectorAll('[data-year]').forEach((yearEl) => {
+    yearEl.textContent = currentYear;
+  });
 
   // ナビゲーションのスムーススクロール（ヘッダー分のオフセット付き）
   document.querySelectorAll('a[href^="#"]').forEach((link) => {
@@ -430,7 +434,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setCurrentScene = (sceneIndex) => {
       scenes.forEach((scene, index) => {
-        scene.classList.toggle('is-current', index === sceneIndex);
+        const isCurrent = index === sceneIndex;
+        scene.classList.toggle('is-current', isCurrent);
+        if (!isCurrent || scene.classList.contains('scene-animated')) return;
+        scene.classList.add('scene-animate');
+        scene.classList.add('scene-animated');
+        window.setTimeout(() => {
+          scene.classList.remove('scene-animate');
+        }, 1200);
       });
     };
 
@@ -492,6 +503,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isSnapping = false;
     let touchStartY = null;
+    let touchPendingDirection = 0;
+
+    const isMenuActive = () => header?.classList.contains('nav-open')
+      || document.body.classList.contains('nav-lock');
 
     const scrollToKamishibaiY = (targetY) => {
       window.scrollTo({
@@ -501,7 +516,15 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     };
 
+    const releaseSnap = (delay = 0) => {
+      window.clearTimeout(snapReleaseTimer);
+      snapReleaseTimer = window.setTimeout(() => {
+        isSnapping = false;
+      }, delay);
+    };
+
     const snapToNearestScene = ({ force = false, immediate = false } = {}) => {
+      if (isMenuActive()) return;
       if (isSnapping && !force) return;
       const end = getKamishibaiEnd();
       const y = window.scrollY || window.pageYOffset;
@@ -522,20 +545,18 @@ document.addEventListener('DOMContentLoaded', () => {
       setCurrentScene(currentSceneIndex);
       animateToScene(currentSceneIndex);
       scrollToKamishibaiY(targetY);
-      window.clearTimeout(snapReleaseTimer);
-      snapReleaseTimer = window.setTimeout(() => {
-        isSnapping = false;
-      }, immediate ? 80 : sceneTransitionDuration);
+      releaseSnap();
     };
 
-    const scheduleSettleSnap = (delay = 260, options = {}) => {
+    const scheduleSettleSnap = (delay = 0, options = {}) => {
+      if (isMenuActive()) return;
       if (isSnapping) return;
       window.clearTimeout(scrollSettleTimer);
       scrollSettleTimer = window.setTimeout(() => snapToNearestScene(options), delay);
     };
 
     const snapKamishibai = (direction) => {
-      if (isSnapping) return;
+      if (isMenuActive()) return;
       const end = getKamishibaiEnd();
       const y = window.scrollY || window.pageYOffset;
       if ((direction < 0 && y <= 2) || (direction > 0 && y >= end - 2)) return;
@@ -549,13 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
       setCurrentScene(currentSceneIndex);
       animateToScene(currentSceneIndex);
       scrollToKamishibaiY(targetY);
-      window.clearTimeout(snapReleaseTimer);
-      snapReleaseTimer = window.setTimeout(() => {
-        isSnapping = false;
-      }, sceneTransitionDuration);
+      releaseSnap();
     };
 
     scrollToKamishibaiScene = (targetIndex) => {
+      if (isMenuActive()) return false;
       if (targetIndex < 0 || targetIndex > maxSceneIndex) return false;
       const end = getKamishibaiEnd();
       const targetY = (end / maxSceneIndex) * targetIndex;
@@ -568,14 +587,12 @@ document.addEventListener('DOMContentLoaded', () => {
       setCurrentScene(currentSceneIndex);
       animateToScene(currentSceneIndex);
       scrollToKamishibaiY(targetY);
-      window.clearTimeout(snapReleaseTimer);
-      snapReleaseTimer = window.setTimeout(() => {
-        isSnapping = false;
-      }, sceneTransitionDuration);
+      releaseSnap();
       return true;
     };
 
     const handleWheelSnap = (event) => {
+      if (isMenuActive()) return;
       const end = getKamishibaiEnd();
       const y = window.scrollY || window.pageYOffset;
       if (y < -2 || y > end + 2) return;
@@ -585,10 +602,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleTouchStart = (event) => {
+      if (isMenuActive()) return;
       touchStartY = event.touches[0]?.clientY ?? null;
+      touchPendingDirection = 0;
     };
 
     const handleTouchMove = (event) => {
+      if (isMenuActive()) return;
       if (touchStartY === null) return;
       const currentY = event.touches[0]?.clientY ?? touchStartY;
       const delta = touchStartY - currentY;
@@ -597,20 +617,32 @@ document.addEventListener('DOMContentLoaded', () => {
       const y = window.scrollY || window.pageYOffset;
       if ((delta < 0 && y <= 2) || (delta > 0 && y >= end - 2)) return;
       event.preventDefault();
-      touchStartY = null;
-      snapKamishibai(delta > 0 ? 1 : -1);
+      touchPendingDirection = delta > 0 ? 1 : -1;
     };
 
     const handleTouchEnd = () => {
+      if (isMenuActive()) {
+        touchStartY = null;
+        touchPendingDirection = 0;
+        return;
+      }
       touchStartY = null;
-      scheduleSettleSnap(240, { force: true });
+      if (touchPendingDirection) {
+        const direction = touchPendingDirection;
+        touchPendingDirection = 0;
+        snapKamishibai(direction);
+        return;
+      }
+      scheduleSettleSnap(0, { force: true });
     };
 
     const handleInteractionEnd = () => {
-      scheduleSettleSnap(180, { force: true });
+      if (isMenuActive()) return;
+      scheduleSettleSnap(0, { force: true });
     };
 
     const handleScroll = () => {
+      if (isMenuActive()) return;
       requestUpdate();
     };
 
